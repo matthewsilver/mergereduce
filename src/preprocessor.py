@@ -2,6 +2,13 @@ from pyspark.conf import SparkConf
 from pyspark.context import SparkContext
 from pyspark.sql import SQLContext
 
+from pyspark.ml.feature import StopWordsRemover
+from pyspark.ml.feature import Tokenizer
+
+import nltk
+nltk.download("wordnet")
+from nltk.stem import WordNetLemmatizer
+
 sc = SparkContext()
 sc.setLogLevel("ERROR")
 
