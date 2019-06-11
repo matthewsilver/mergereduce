@@ -36,7 +36,7 @@ def compute_minhash_lsh(df, mh, lsh):
     calc_min_hash = udf(lambda x: list(map(lambda x: int(x), mh.calc_min_hash_signature(x))), ArrayType(IntegerType()))
     calc_lsh_hash = udf(lambda x: list(map(lambda x: int(x), lsh.find_lsh_buckets(x))), ArrayType(IntegerType()))
 
-    df = df.withColumn("min_hash", calc_min_hash("text_body_stemmed"))
+    df = df.withColumn("min_hash", calc_min_hash("text_body_shingled"))
 #    df = df.withColumn("lsh_hash", calc_lsh_hash("min_hash"))
 
     #df.foreachPartition(store_lsh_redis)

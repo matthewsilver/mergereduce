@@ -41,8 +41,8 @@ def filter_body(body):
 
 
 # Create 2 gram shingles from text body
-def get_two_gram_shingles(tokens):
-    return [(tokens[i], tokens[i + 1]) for i in range(len(tokens) - 1)]
+def get_n_gram_shingles(tokens, n):
+    return [tuple(tokens[i:i+n]) for i in range(len(tokens) - n + 1)]
 
 
 # Preprocess a data file and upload it
@@ -71,12 +71,12 @@ def preprocess_file(bucket_name, file_name):
     stemmed_data = stop_words_removed_data.withColumn("text_body_stemmed", stem("text_body_stop_words_removed"))
 
     # Shingle resulting body
-    # if (config.LOG_DEBUG): print(colored("[PROCESSING] Shingling resulting text body...", "green"))
-    # shingle = udf(lambda tokens: get_two_gram_shingles(tokens), ArrayType(ArrayType(StringType())))
-    # shingled_data = stemmed_data.withColumn("text_body_shingled", shingle("text_body_stemmed"))
+    if (config.LOG_DEBUG): print(colored("[PROCESSING] Shingling resulting text body...", "green"))
+    shingle = udf(lambda tokens: get_n_gram_shingles(tokens, 3), ArrayType(ArrayType(StringType())))
+    shingled_data = stemmed_data.withColumn("text_body_shingled", shingle("text_body_stemmed"))
 
     # Extract data that we want
-    final_data = stemmed_data
+    final_data = shingled_data
     final_data.registerTempTable("final_data")
 
     preprocessed_data = sql_context.sql(
@@ -85,12 +85,12 @@ def preprocess_file(bucket_name, file_name):
 
     # Write to AWS
     if (config.LOG_DEBUG): print(colored("[UPLOAD]: Writing preprocessed data to AWS...", "green"))
-    write_aws_s3(config.S3_BUCKET_BATCH_PREPROCESSED, config.S3_FOLDER_BATCH_RAW+'/output', preprocessed_data)
+    util.write_aws_s3(config.S3_BUCKET_BATCH_PREPROCESSED, config.S3_FOLDER_BATCH_RAW+'/output', preprocessed_data)
 
 
 def preprocess_all():
     bucket = util.get_bucket(config.S3_BUCKET_BATCH_RAW)
-    preprocess_file(config.S3_BUCKET_BATCH_RAW, config.S3_FOLDER_BATCH_RAW+'/*/*')
+    preprocess_file(config.S3_BUCKET_BATCH_RAW, config.S3_FOLDER_BATCH_RAW+'/AA')
     #for csv_obj in bucket.objects.all():
     #    preprocess_file(config.S3_BUCKET_BATCH_RAW, csv_obj.key)
     #    print(colored("Finished preprocessing file s3a://{0}/{1}".format(config.S3_BUCKET_BATCH_RAW, csv_obj.key), "green"))
