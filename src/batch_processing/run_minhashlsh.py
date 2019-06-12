@@ -24,11 +24,11 @@ import locality_sensitive_hash
 def store_lsh_redis(rdd):
     rdb = redis.StrictRedis(config.REDIS_SERVER, port=6379, db=0)
     for q in rdd:
-        tags = q.tags.split("|")
+        tags = q.categories
         for tag in tags:
-            q_json = json.dumps({"id": q.id, "title": q.title, "min_hash": q.min_hash, "lsh_hash": q.lsh_hash, "timestamp": q.creation_date})
-            rdb.zadd("lsh:{0}".format(tag), q.view_count, q_json)
-            rdb.sadd("lsh_keys", "lsh:{0}".format(tag))
+            q_json = json.dumps({"id": q.id, "title": q.title, "url": q.url, "min_hash": q.min_hash, "lsh_hash": q.lsh_hash})
+            rdb.zadd("lsh:{0}".format(tag.encode('utf-8')), {q_json: q.id})
+            rdb.sadd("lsh_keys", "lsh:{0}".format(tag.encode('utf-8')))
 
 
 # Computes MinHashes, LSHes for all in DataFrame
@@ -37,26 +37,26 @@ def compute_minhash_lsh(df, mh, lsh):
     calc_lsh_hash = udf(lambda x: list(map(lambda x: int(x), lsh.find_lsh_buckets(x))), ArrayType(IntegerType()))
 
     df = df.withColumn("min_hash", calc_min_hash("text_body_shingled"))
-#    df = df.withColumn("lsh_hash", calc_lsh_hash("min_hash"))
+    df = df.withColumn("lsh_hash", calc_lsh_hash("min_hash"))
 
-    #df.foreachPartition(store_lsh_redis)
-    return df
+    df.foreachPartition(store_lsh_redis)
 
 # Store duplicate candidates in Redis
 def store_dup_cand_redis(tag, rdd):
     rdb = redis.StrictRedis(config.REDIS_SERVER, port=6379, db=0)
+    i = 1
     for cand in rdd:
-        cand_reformatted = (tag, cand.q1_id, cand.q1_title, cand.q2_id, cand.q2_title, cand.timestamp)
+        cand_reformatted = (tag, cand.q1_id, cand.q1_title, cand.q2_id, cand.q2_title)
         # Store by time
-        rdb.zadd("dup_cand", cand.mh_js, cand_reformatted)
-
+        rdb.zadd("dup_cand", {str(cand_reformatted): i})
+        i += 1
 
 # Compares LSH signatures, MinHash signature, and find duplicate candidates
 def find_dup_cands_within_tags(mh, lsh):
     rdb = redis.StrictRedis(config.REDIS_SERVER, port=6379, db=0)
-
+    i = 1
     # Fetch all tags from lsh_keys set
-    for lsh_key in rdb.sscan_iter("lsh_keys", match="*", count=500):
+    for lsh_key in rdb.sscan_iter("lsh_keys", match="*", count=50):
         tag = lsh_key.replace("lsh:", "")
         tq_table_size = rdb.zcard("lsh:{0}".format(tag))
         if(tq_table_size >= config.DUP_QUESTION_MIN_TAG_SIZE):  # Ignore extremely small tags
@@ -72,13 +72,12 @@ def find_dup_cands_within_tags(mh, lsh):
                 col("q2.min_hash").alias("q2_min_hash"),
                 col("q1.title").alias("q1_title"),
                 col("q2.title").alias("q2_title"),
-                col("q1.timestamp").alias("timestamp"),
                 find_lsh_sim("q1.lsh_hash", "q2.lsh_hash").alias("lsh_sim")
             ).sort("q1_id", "q2_id")
-
+            i += 1
+            if i > 50: break
             # Duplicate candidates have a high enough LSH similarity count
             lsh_cand_df = lsh_sim_df.filter(lsh_sim_df.lsh_sim >= config.LSH_SIMILARITY_BAND_COUNT)
-
             # Compare MinHash jaccard similarity scores for duplicate candidates
             find_mh_js = udf(lambda x, y: mh.jaccard_sim_score(x, y))
             mh_cand_df = lsh_cand_df.withColumn("mh_js", find_mh_js(lsh_cand_df.q1_min_hash, lsh_cand_df.q2_min_hash))
@@ -103,11 +102,11 @@ def run_minhash_lsh():
 
     # Compute MinHash/LSH hashes for every question
     if (config.LOG_DEBUG): print(colored("[BATCH]: Calculating MinHash hashes and LSH hashes...", "green"))
-    return compute_minhash_lsh(df, mh, lsh)
+    compute_minhash_lsh(df, mh, lsh)
 
     # Compute pairwise LSH similarities for questions within tags
     if (config.LOG_DEBUG): print(colored("[BATCH]: Fetching questions in same tag, comparing LSH and MinHash, uploading duplicate candidates back to Redis...", "cyan"))
-    #find_dup_cands_within_tags(mh, lsh)
+    find_dup_cands_within_tags(mh, lsh)
 
 
 def main():
@@ -125,9 +124,8 @@ def main():
     sql_context = SQLContext(sc)
 
     start_time = time.time()
-    df = run_minhash_lsh()
-    #util.write_aws_s3('s3a://mattsilver/insight', 'text/minhashes', df)
-    util.write_aws_s3(config.S3_BUCKET_BATCH_PREPROCESSED, config.S3_FOLDER_BATCH_RAW+'/minhashes', df)
+    run_minhash_lsh()
+    #util.write_aws_s3(config.S3_BUCKET_BATCH_PREPROCESSED, config.S3_FOLDER_BATCH_RAW+'/minhashes', df)
     end_time = time.time()
     print(colored("Spark Custom MinHashLSH run time (seconds): {0} seconds".format(end_time - start_time), "magenta"))
 
