@@ -48,7 +48,7 @@ def get_n_gram_shingles(tokens, n):
 # Preprocess a data file and upload it
 def preprocess_file(bucket_name, file_name):
 
-    raw_data = sql_context.read.json("s3a://{0}/{1}".format(bucket_name, file_name))
+    raw_data = sql_context.read.json("s3a://{0}/{1}".format(bucket_name, file_name + '/AA/wiki_0*'))
 
     # Clean article text
     if(config.LOG_DEBUG): print(colored("[PROCESSING]: Cleaning article text", "green"))
@@ -75,22 +75,15 @@ def preprocess_file(bucket_name, file_name):
     shingle = udf(lambda tokens: get_n_gram_shingles(tokens, 3), ArrayType(ArrayType(StringType())))
     shingled_data = stemmed_data.withColumn("text_body_shingled", shingle("text_body_stemmed"))
 
-    # Extract data that we want
-    final_data = shingled_data
-    final_data.registerTempTable("final_data")
-
-    preprocessed_data = sql_context.sql(
-        "SELECT * from final_data"
-    )
-
     # Write to AWS
+    print('process {} articles total'.format(shingled_data.count()))
     if (config.LOG_DEBUG): print(colored("[UPLOAD]: Writing preprocessed data to AWS...", "green"))
-    util.write_aws_s3(config.S3_BUCKET_BATCH_PREPROCESSED, config.S3_FOLDER_BATCH_RAW+'/output', preprocessed_data)
+    util.write_aws_s3(config.S3_BUCKET, config.S3_FOLDER_PREPROCESSED, shingled_data, "json")
 
 
 def preprocess_all():
-    bucket = util.get_bucket(config.S3_BUCKET_BATCH_RAW)
-    preprocess_file(config.S3_BUCKET_BATCH_RAW, config.S3_FOLDER_BATCH_RAW+'/AA')
+    bucket = util.get_bucket(config.S3_BUCKET)
+    preprocess_file(config.S3_BUCKET, config.S3_FOLDER_EXTRACTED)
     #for csv_obj in bucket.objects.all():
     #    preprocess_file(config.S3_BUCKET_BATCH_RAW, csv_obj.key)
     #    print(colored("Finished preprocessing file s3a://{0}/{1}".format(config.S3_BUCKET_BATCH_RAW, csv_obj.key), "green"))
