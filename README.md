@@ -19,6 +19,8 @@ To see the Python program each script runs, look in the .sh file to see the file
 ### Notes
 
 - In the src/batch_processing folder, there's code for computing MinHashLSH (a faster version of MinHash). Please ignore that for now! It may be implemented later but I didn't do it in time for this PR.
+- Most code imports values from the config and/or utils files under src/config and src/lib, respectively.
+- The WikiExtractor code is pretty extensive, and since I had to make some changes to the code I'm not just cloning the repo. Unfortunately this means a lot of code to look over but I'd recommend skimming at most.
 
 ### Planned Improvements
 
