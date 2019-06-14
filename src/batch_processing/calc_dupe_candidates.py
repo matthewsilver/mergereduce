@@ -26,6 +26,7 @@ import config
 import util
 import min_hash
 import locality_sensitive_hash
+import configparser
 
 def common_bands_count(a, b):
   return len(set(a) & set(b))
@@ -38,4 +39,8 @@ lsh_sim_df = df.alias('q1').join(df.alias('q2'), col('q1.id') < col('q2.id')).se
 
 #lsh_sim_df.orderBy(col('lsh_sim').desc())
 
-util.write_aws_s3(config.S3_BUCKET, config.S3_FOLDER_OUTPUT, lsh_sim_df)
+#util.write_aws_s3(config.S3_BUCKET, config.S3_FOLDER_OUTPUT, lsh_sim_df)
+config = configparser.ConfigParser()
+config.read('../config/db_properties.ini')
+
+lsh_sim_df.write.jdbc(config['postgres']['url'], config['postgres']['table'], mode='overwrite', properties={'user': config['postgres']['user'], 'password': config['postgres']['password']})
