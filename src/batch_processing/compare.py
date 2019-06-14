@@ -1,83 +1,61 @@
-import sys
 import os
 import time
-import json
+import configparser
+import numpy as np
+import mmh3
+import pickle
 from termcolor import colored
 
-from functools import reduce
 from pyspark.conf import SparkConf
 from pyspark.context import SparkContext
-from pyspark.sql import SQLContext, DataFrame
-from pyspark.sql.functions import udf, col, size, explode, array_contains, count
+from pyspark.sql import SQLContext
+from pyspark.sql.functions import udf, col
 
 from pyspark.sql.types import IntegerType, FloatType, ArrayType
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/config")
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/lib")
-import config
-import util
-import min_hash
-import locality_sensitive_hash
+def compare_text():
 
-find_lsh_sim = udf(lambda x, y: len(set(x) & set(y))/float(config.MIN_HASH_K_VALUE), FloatType())
+    k = 5
+    random_seed = 50
+    masks = (np.random.RandomState(seed=random_seed).randint(np.iinfo(np.int64).min, np.iinfo(np.int64).max, k))
 
-def compute_minhash(df, mh):
-    calc_min_hash = udf(lambda x: list(map(lambda x: int(x), mh.calc_min_hash_signature(x))), ArrayType(IntegerType()))
-    df = df.withColumn("min_hash", calc_min_hash("text_body_shingled"))
-    return df
+    def update_min_hash_signature(word, min_hash_signature):
+        #root_hash = mmh3.hash64(word.encode("ascii", "ignore"))[0]
+        root_hash = mmh3.hash64(pickle.dumps(word))[0]  # For MinHashing shingles
+        word_hashes = np.bitwise_xor(masks, root_hash)  # XOR root hash with k randomly generated integers to simulate k hash functions, can add bitroll if there's time
+        min_hash_signature = np.minimum(min_hash_signature, word_hashes)
+        return min_hash_signature
 
-intersect_size = udf(lambda c1, c2: len(set(c1) & set(c2)), IntegerType())
+    def calc_min_hash_signature(tokens):
+        min_hash_signature = np.empty(k, dtype=np.int64)
+        min_hash_signature.fill(np.iinfo(np.int64).max)
+        for token in tokens:
+            min_hash_signature = update_min_hash_signature(token, min_hash_signature)
+        return min_hash_signature    
 
-def unionAll(*dfs):
-    return reduce(DataFrame.unionAll, dfs)
-
-# Find duplicate candidates
-def find_dup_cands_within_tags(df, mh, threshold=0.9):
-    all_dfs = []
-    all_cats = df.select(explode(col('categories')).alias('cat')).groupBy(col('cat')).agg(count('*').alias('num_entries')).where(col('num_entries') > 5).collect()
-    num_cats = len(all_cats)
-    print('found {} categories total'.format(num_cats))
-    i = 1
-    threshold = 0.1
-    for cat in all_cats:
-        cat = str(cat["cat"]).strip()
-        print('looking at category: {}. {} of {} categories ({}%) complete'.format(cat, i, num_cats, 100*round(1.0*i/num_cats, 2)))
-        df_filtered = df.where(array_contains(col('categories'), cat)).cache()
-        minhash_df = df_filtered.alias("q1").join(df.alias("q2"), col("q1.id") < col("q2.id")).select(
-        col("q1.id").alias("q1_id"),
-        col("q2.id").alias("q2_id"),
-        col("q1.min_hash").alias("q1_min_hash"),
-        col("q2.min_hash").alias("q2_min_hash"),
-        col("q1.title").alias("q1_title"),
-        col("q2.title").alias("q2_title"),
-        find_lsh_sim("q1.min_hash", "q2.min_hash").alias("min_hash_overlap")
-            ).where(col('min_hash_overlap') >= threshold)
-        i += 1
-        print(minhash_df.show())
-        minhash_df_count = minhash_df.count()
-        if minhash_df_count > 0:
-            print('writing {} potential dupes in category to file'.format(minhash_df_count))
-            util.write_aws_s3(config.S3_BUCKET_BATCH_PREPROCESSED, config.S3_FOLDER_BATCH_RAW+'/potential_dupes/partition={}'.format(cat), minhash_df)
-    #return unionAll(*all_dfs)
-
-def run_minhash():
-    df = util.read_all_json_from_bucket_folder(sql_context, config.S3_BUCKET, config.S3_FOLDER_PREPROCESSED)
+    calc_overlap = udf(lambda x, y: 1.0*len(set(x) & set(y))/k, FloatType())
+    
+    def compute_minhash(df):
+       calc_min_hash = udf(lambda x: list(map(lambda x: int(x), calc_min_hash_signature(x))), ArrayType(IntegerType()))
+       df = df.withColumn("min_hash", calc_min_hash("text_body_shingled"))
+       return df
+    df = sql_context.read.json("s3a://mattsilver-insight/preprocessed").limit(100)
     print('there are {} articles\n================='.format(df.count()))
-    #  Create and save MinHash and LSH if not exist or load them from file
-    if(not os.path.isfile(config.MIN_HASH_PICKLE) or not os.path.isfile(config.LSH_PICKLE)):
-        mh = min_hash.MinHash(config.MIN_HASH_K_VALUE)
-        util.save_pickle_file(mh, config.MIN_HASH_PICKLE)
-    else:
-        mh = util.load_pickle_file(config.MIN_HASH_PICKLE)
-
+    
     # Compute MinHash for every article
-    if (config.LOG_DEBUG): print(colored("[BATCH]: Calculating MinHash hashes and LSH hashes...", "green"))
-    minhash_df = compute_minhash(df, mh)
-    return minhash_df
-    # Compute pairwise LSH similarities for questions within tags
-    if (config.LOG_DEBUG): print(colored("[BATCH]: Fetching questions in same tag, comparing LSH and MinHash, uploading duplicate candidates back to Redis...", "cyan"))
-    #potential_dupes_df = find_dup_cands_within_tags(minhash_df, mh, 0.9)
-    #return potential_dupes_df    
+    print(colored("[BATCH]: Calculating MinHash hashes and LSH hashes...", "green"))
+    minhash_df = compute_minhash(df)
+    
+    
+    similarity_scores_df = minhash_df.alias('q1').join(
+    minhash_df.alias('q2'), col('q1.id') < col('q2.id')
+    ).select(
+    col('q1.url').alias('q1_url'),
+    col('q2.url').alias('q2_url'),
+    calc_overlap('q1.min_hash', 'q2.min_hash').alias('lsh_sim')
+    )
+    
+    return similarity_scores_df
 
 def main():
     spark_conf = SparkConf().setAppName("Spark Custom MinHashLSH").set("spark.cores.max", "30")
@@ -85,19 +63,21 @@ def main():
     global sc
     sc = SparkContext(conf=spark_conf)
     sc.setLogLevel("ERROR")
-    sc.addFile(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/lib/min_hash.py")
-    sc.addFile(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/lib/locality_sensitive_hash.py")
-    sc.addFile(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/lib/util.py")
-    sc.addFile(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/config/config.py")
-
     global sql_context
     sql_context = SQLContext(sc)
 
+    sc.setLogLevel("ERROR")
+    sc.addFile(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/lib/util.py")
+    sc.addFile(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/config/config.py")
+
+
     start_time = time.time()
-    minhash_df = run_minhash()
-    util.write_aws_s3(config.S3_BUCKET, config.S3_FOLDER_MINHASHES, minhash_df)
-    #potential_dupes_df = run_minhash()
-    #util.write_aws_s3(config.S3_BUCKET_BATCH_PREPROCESSED, config.S3_FOLDER_BATCH_RAW+'/potential_dupes', potential_dupes_df)
+    similarity_scores_df = compare_text()
+
+    config = configparser.ConfigParser()
+    config.read('../config/db_properties.ini')
+    similarity_scores_df.write.jdbc(config['postgres']['url'], config['postgres']['table'], mode='overwrite', properties={'user': config['postgres']['user'], 'password': config['postgres']['password']})    
+
     end_time = time.time()
     print(colored("Spark MinHash run time (seconds): {0} seconds".format(end_time - start_time), "magenta"))
 
