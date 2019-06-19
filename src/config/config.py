@@ -13,7 +13,7 @@ NUM_SYNONYMS = 0  # num closest synonyms to add to token vector
 S3_BUCKET = "mattsilver-insight"
 S3_FOLDER_RAW = "raw"
 S3_FOLDER_PREPROCESSED = "preprocessed"
-S3_FOLDER_EXTRACTED = "extracted"
+S3_FOLDER_EXTRACTED = "extracted_flat"
 S3_FOLDER_MINHASHES = "minhash"
 S3_FOLDER_OUTPUT = "dedupe_recs"
 

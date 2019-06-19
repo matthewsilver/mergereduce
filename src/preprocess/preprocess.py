@@ -2,13 +2,14 @@ import sys
 import os
 import re
 import time
+import configparser
 from termcolor import colored
 
 from pyspark.ml.feature import StopWordsRemover
 from pyspark.ml.feature import Tokenizer
 
 from pyspark.sql.types import ArrayType, StringType
-from pyspark.sql.functions import udf, concat, col, lit
+from pyspark.sql.functions import udf, concat, col, lit, explode, count
 
 from pyspark.conf import SparkConf
 from pyspark.context import SparkContext
@@ -42,13 +43,13 @@ def filter_body(body):
 
 # Create 2 gram shingles from text body
 def get_n_gram_shingles(tokens, n):
-    return [tuple(tokens[i:i+n]) for i in range(len(tokens) - n + 1)]
+    return str([tuple(tokens[i:i+n]) for i in range(len(tokens) - n + 1)])
 
 
 # Preprocess a data file and upload it
 def preprocess_file(bucket_name, file_name):
 
-    raw_data = sql_context.read.json("s3a://{0}/{1}".format(bucket_name, file_name + '/AA/wiki_0*'))
+    raw_data = sql_context.read.json("s3a://{0}/{1}".format(bucket_name, file_name))
 
     # Clean article text
     if(config.LOG_DEBUG): print(colored("[PROCESSING]: Cleaning article text", "green"))
@@ -72,15 +73,32 @@ def preprocess_file(bucket_name, file_name):
 
     # Shingle resulting body
     if (config.LOG_DEBUG): print(colored("[PROCESSING] Shingling resulting text body...", "green"))
-    shingle = udf(lambda tokens: get_n_gram_shingles(tokens, 3), ArrayType(ArrayType(StringType())))
+    shingle = udf(lambda tokens: get_n_gram_shingles(tokens, 3), StringType())
     shingled_data = stemmed_data.withColumn("text_body_shingled", shingle("text_body_stemmed"))
-
+    shingle_table = shingled_data.select('id', 'text_body_shingled')
     # Write to AWS
-    print('process {} articles total'.format(shingled_data.count()))
-    if (config.LOG_DEBUG): print(colored("[UPLOAD]: Writing preprocessed data to AWS...", "green"))
-    util.write_aws_s3(config.S3_BUCKET, config.S3_FOLDER_PREPROCESSED, shingled_data, "json")
+#    print('process {} articles total'.format(shingled_data.count()))
+   
+    ids = raw_data.select('id', explode('categories').alias('cat'))
+    ids1 = ids.withColumnRenamed('id', 'id1').cache()
+    ids2 = ids.withColumnRenamed('id', 'id2').cache()    
+    ids_to_compare = ids1.join(
+        ids2,
+        (ids1.cat == ids2.cat) & (ids1.id1 < ids2.id2 )).dropDuplicates(['id1', 'id2']).select('id1', 'id2')
+    print('{} total ids to compare'.format(ids_to_compare.count())) 
+    def write_aws_s3(bucket_name, file_name, df):
+        df.write.save("s3a://{0}/{1}".format(bucket_name, file_name), format="json", mode="overwrite")
 
+    if (config.LOG_DEBUG): print(colored("[UPLOAD]: Writing preprocessed data to database...", "green"))
+#    write_aws_s3(config.S3_BUCKET, config.S3_FOLDER_PREPROCESSED, shingled_data)
+    cf = configparser.ConfigParser()
+    cf.read('../config/db_properties.ini')
+    if (config.LOG_DEBUG): print(colored("[UPLOAD]: Writing shingle data to database...", "green")) 
+    #shingle_table.write.jdbc(cf['postgres']['url_preprocess'], 'shingle_data', mode='overwrite', properties={'user': cf['postgres']['user'], 'password': cf['postgres']['password']}) 
+    if (config.LOG_DEBUG): print(colored("[UPLOAD]: Writing id comparisons to database...", "green")) 
+    ids_to_compare.write.jdbc(cf['postgres']['url_preprocess'], 'ids_to_compare', mode='overwrite', properties={'user': cf['postgres']['user'], 'password': cf['postgres']['password']})
 
+ 
 def preprocess_all():
     bucket = util.get_bucket(config.S3_BUCKET)
     preprocess_file(config.S3_BUCKET, config.S3_FOLDER_EXTRACTED)

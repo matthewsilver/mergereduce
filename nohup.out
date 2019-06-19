@@ -1,0 +1,73 @@
+2019-06-18 13:25:29 WARN  NativeCodeLoader:62 - Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+[nltk_data] Downloading package wordnet to /home/ubuntu/nltk_data...
+[nltk_data]   Package wordnet is already up-to-date!
+2019-06-18 13:25:32 INFO  SparkContext:54 - Running Spark version 2.3.1
+2019-06-18 13:25:32 INFO  SparkContext:54 - Submitted application: preprocess.py
+2019-06-18 13:25:32 INFO  SecurityManager:54 - Changing view acls to: ubuntu
+2019-06-18 13:25:32 INFO  SecurityManager:54 - Changing modify acls to: ubuntu
+2019-06-18 13:25:32 INFO  SecurityManager:54 - Changing view acls groups to: 
+2019-06-18 13:25:32 INFO  SecurityManager:54 - Changing modify acls groups to: 
+2019-06-18 13:25:32 INFO  SecurityManager:54 - SecurityManager: authentication disabled; ui acls disabled; users  with view permissions: Set(ubuntu); groups with view permissions: Set(); users  with modify permissions: Set(ubuntu); groups with modify permissions: Set()
+2019-06-18 13:25:33 INFO  Utils:54 - Successfully started service 'sparkDriver' on port 41867.
+2019-06-18 13:25:33 INFO  SparkEnv:54 - Registering MapOutputTracker
+2019-06-18 13:25:33 INFO  SparkEnv:54 - Registering BlockManagerMaster
+2019-06-18 13:25:33 INFO  BlockManagerMasterEndpoint:54 - Using org.apache.spark.storage.DefaultTopologyMapper for getting topology information
+2019-06-18 13:25:33 INFO  BlockManagerMasterEndpoint:54 - BlockManagerMasterEndpoint up
+2019-06-18 13:25:33 INFO  DiskBlockManager:54 - Created local directory at /tmp/blockmgr-bfc86e65-f383-4383-b303-89e009154be7
+2019-06-18 13:25:33 INFO  MemoryStore:54 - MemoryStore started with capacity 3.0 GB
+2019-06-18 13:25:33 INFO  SparkEnv:54 - Registering OutputCommitCoordinator
+2019-06-18 13:25:33 INFO  log:192 - Logging initialized @7660ms
+2019-06-18 13:25:34 INFO  Server:346 - jetty-9.3.z-SNAPSHOT
+2019-06-18 13:25:34 INFO  Server:414 - Started @7944ms
+2019-06-18 13:25:34 WARN  Utils:66 - Service 'SparkUI' could not bind on port 4040. Attempting port 4041.
+2019-06-18 13:25:34 INFO  AbstractConnector:278 - Started ServerConnector@1251dee1{HTTP/1.1,[http/1.1]}{0.0.0.0:4041}
+2019-06-18 13:25:34 INFO  Utils:54 - Successfully started service 'SparkUI' on port 4041.
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@5ffd5ddc{/jobs,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@345ff730{/jobs/json,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@2824bab1{/jobs/job,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@661eca39{/jobs/job/json,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@2db357bd{/stages,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@204f9188{/stages/json,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@6017e561{/stages/stage,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@1bee11f4{/stages/stage/json,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@440dc305{/stages/pool,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@715255b8{/stages/pool/json,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@3eb663c2{/storage,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@55bca451{/storage/json,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@7f034008{/storage/rdd,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@1c1f25c5{/storage/rdd/json,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@11baedf7{/environment,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@21144dbd{/environment/json,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@44725a97{/executors,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@21267ed1{/executors/json,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@67b5ea57{/executors/threadDump,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@64cf2ab9{/executors/threadDump/json,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@323f7255{/static,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@3253e464{/,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@e49259c{/api,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@78cb44fd{/jobs/job/kill,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@1c0641a{/stages/stage/kill,null,AVAILABLE,@Spark}
+2019-06-18 13:25:34 INFO  SparkUI:54 - Bound SparkUI to 0.0.0.0, and started at http://ec2-34-227-44-203.compute-1.amazonaws.com:4041
+2019-06-18 13:25:35 INFO  SparkContext:54 - Added file file:/home/ubuntu/mergereduce/src/preprocess/preprocess.py at file:/home/ubuntu/mergereduce/src/preprocess/preprocess.py with timestamp 1560864335346
+2019-06-18 13:25:35 INFO  Utils:54 - Copying /home/ubuntu/mergereduce/src/preprocess/preprocess.py to /tmp/spark-1914d35f-7fd7-423c-8066-d35e0a0d74b1/userFiles-1b1d4dad-23a9-4f37-8976-eee3306e6082/preprocess.py
+2019-06-18 13:25:35 INFO  Executor:54 - Starting executor ID driver on host localhost
+2019-06-18 13:25:35 INFO  Utils:54 - Successfully started service 'org.apache.spark.network.netty.NettyBlockTransferService' on port 39297.
+2019-06-18 13:25:35 INFO  NettyBlockTransferService:54 - Server created on ip-10-0-0-4.ec2.internal:39297
+2019-06-18 13:25:35 INFO  BlockManager:54 - Using org.apache.spark.storage.RandomBlockReplicationPolicy for block replication policy
+2019-06-18 13:25:35 INFO  BlockManagerMaster:54 - Registering BlockManager BlockManagerId(driver, ip-10-0-0-4.ec2.internal, 39297, None)
+2019-06-18 13:25:35 INFO  BlockManagerMasterEndpoint:54 - Registering block manager ip-10-0-0-4.ec2.internal:39297 with 3.0 GB RAM, BlockManagerId(driver, ip-10-0-0-4.ec2.internal, 39297, None)
+2019-06-18 13:25:35 INFO  BlockManagerMaster:54 - Registered BlockManager BlockManagerId(driver, ip-10-0-0-4.ec2.internal, 39297, None)
+2019-06-18 13:25:35 INFO  BlockManager:54 - Initialized BlockManager: BlockManagerId(driver, ip-10-0-0-4.ec2.internal, 39297, None)
+2019-06-18 13:25:36 INFO  ContextHandler:781 - Started o.s.j.s.ServletContextHandler@3c725bc7{/metrics/json,null,AVAILABLE,@Spark}
+[32m[PROCESSING]: Cleaning article text[0m
+[32m[PROCESSING]: Tokenizing text vector...[0m
+[32m[PROCESSING]: Removing stop words...[0m
+[32m[PROCESSING]: Stemming tokenized vector...[0m
+[32m[PROCESSING] Shingling resulting text body...[0m
+[32m[UPLOAD]: Writing preprocessed data to AWS...[0m
+OpenJDK 64-Bit Server VM warning: INFO: os::commit_memory(0x0000000658180000, 244318208, 0) failed; error='Cannot allocate memory' (errno=12)
+#
+# There is insufficient memory for the Java Runtime Environment to continue.
+# Native memory allocation (mmap) failed to map 244318208 bytes for committing reserved memory.
+# An error report file with more information is saved as:
+# /home/ubuntu/mergereduce/src/preprocess/hs_err_pid4756.log
