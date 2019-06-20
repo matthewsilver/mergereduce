@@ -1,9 +1,13 @@
 import os
+import sys
 import time
 import configparser
 import numpy as np
 import mmh3
+import itertools
 import pickle
+import redis
+import psycopg2
 from termcolor import colored
 
 from pyspark.conf import SparkConf
@@ -13,9 +17,14 @@ from pyspark.sql.functions import udf, col
 
 from pyspark.sql.types import IntegerType, FloatType, ArrayType
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/config")
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/lib")
+import config
+import util
+
 def compare_text():
 
-    k = 5
+    k = 20
     random_seed = 50
     masks = (np.random.RandomState(seed=random_seed).randint(np.iinfo(np.int64).min, np.iinfo(np.int64).max, k))
 
@@ -37,23 +46,44 @@ def compare_text():
     
     def compute_minhash(df):
        calc_min_hash = udf(lambda x: list(map(lambda x: int(x), calc_min_hash_signature(x))), ArrayType(IntegerType()))
-       df = df.withColumn("min_hash", calc_min_hash("text_body_shingled"))
+       df = df.withColumn("min_hash", calc_min_hash("text_body_shingled")).select('id', 'min_hash')
        return df
-    df = sql_context.read.json("s3a://mattsilver-insight/preprocessed").limit(100)
+    #df = sql_context.read.json("s3a://mattsilver-insight/preprocessed").limit(100)
+    cf = configparser.ConfigParser()
+    cf.read('../config/db_properties.ini')
+    if (config.LOG_DEBUG): print(colored("[UPLOAD]: Reaing shingle data from database...", "green"))
+    df = sql_context.read.jdbc(cf['postgres']['url_preprocess'], table='shingle_data', properties={'user': cf['postgres']['user'], 'password': cf['postgres']['password']})    
     print('there are {} articles\n================='.format(df.count()))
     
     # Compute MinHash for every article
     print(colored("[BATCH]: Calculating MinHash hashes and LSH hashes...", "green"))
     minhash_df = compute_minhash(df)
-    
-    
-    similarity_scores_df = minhash_df.alias('q1').join(
-    minhash_df.alias('q2'), col('q1.id') < col('q2.id')
-    ).select(
-    col('q1.url').alias('q1_url'),
-    col('q2.url').alias('q2_url'),
-    calc_overlap('q1.min_hash', 'q2.min_hash').alias('lsh_sim')
-    )
+   
+    print(colored("Writing results to database", "green"))    
+    connection = psycopg2.connect(host=cf['postgres']['url_results'], database='similarity_scores', user=cf['postgres']['user'], password=cf['postgres']['password'])
+    cursor = connection.cursor()    
+ 
+    rdb = redis.StrictRedis(config.REDIS_SERVER, port=6379, db=0)
+    for category in rdb.keys():
+        pairs = list(itertools.combinations(eval(list(rdb.smembers(category))[0]), 2))
+        print("Evaluating potential for {} pairs in category {}".format(len(pairs), category))
+        for pair in pairs:
+           try:
+               minhash1 = minhash_df.where(minhash_df.id == pair[0]).collect()[0].__getitem__('min_hash')
+               minhash2 = minhash_df.where(minhash_df.id == pair[1]).collect()[0].__getitem__('min_hash')
+               overlap = 1.0 * len(set(minhash1) & set(minhash2))/len(minhash1)
+               if overlap > 0.9:
+                   print(pair[0], pair[1], overlap)
+                   cursor.execute('''INSERT INTO scores (id1, id2, score) VALUES (%s, %s, %s)''', (pair[0], pair[1], overlap))           
+           except:
+               pass
+    #similarity_scores_df = minhash_df.alias('q1').join(
+    #minhash_df.alias('q2'), col('q1.id') < col('q2.id')
+    #).select(
+    #col('q1.url').alias('q1_url'),
+    #col('q2.url').alias('q2_url'),
+    #calc_overlap('q1.min_hash', 'q2.min_hash').alias('lsh_sim')
+    #)
     
     return similarity_scores_df
 

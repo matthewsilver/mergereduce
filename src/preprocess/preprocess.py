@@ -34,8 +34,8 @@ import util
 # Stems words
 def lemmatize(tokens):
     wordnet_lemmatizer = WordNetLemmatizer()
-    stems = [wordnet_lemmatizer.lemmatize(token) for token in tokens if len(token) > 1]
-    return tuple(stems)
+    stems = [wordnet_lemmatizer.lemmatize(token) for token in tokens]
+    return stems
 
 
 # Removes code snippets and other irregular sections from question body, returns cleaned string
@@ -43,13 +43,16 @@ def filter_body(body):
 #    remove_code = re.sub('<[^>]+>', '', body)
     remove_punctuation = re.sub(r"[^\w\s]", " ", body)
     remove_spaces = remove_punctuation.replace("\n", " ")
-    return remove_spaces.encode('ascii', 'ignore')
+    return str(remove_spaces)
 
 
-# Create 2 gram shingles from text body
+# Create n gram shingles from text body
 def get_n_gram_shingles(tokens, n):
-    return str([tuple(tokens[i:i+n]) for i in range(len(tokens) - n + 1)])
+    return str([tokens[i:i+n] for i in range(len(tokens) - n + 1)])
 
+def to_str(l):
+    return str(l)
+to_str_udf = udf(to_str, StringType())
 
 # Preprocess a data file and upload it
 def preprocess_file(bucket_name, file_name):
@@ -60,49 +63,45 @@ def preprocess_file(bucket_name, file_name):
     if(config.LOG_DEBUG): print(colored("[PROCESSING]: Cleaning article text", "green"))
     clean_body = udf(lambda body: filter_body(body), StringType())
     partially_cleaned_data = raw_data.withColumn("cleaned_body", clean_body("text"))
-
     # Tokenize article text
     if (config.LOG_DEBUG): print(colored("[PROCESSING]: Tokenizing text vector...", "green"))
     tokenizer = Tokenizer(inputCol="cleaned_body", outputCol="text_body_tokenized")
     tokenized_data = tokenizer.transform(partially_cleaned_data)
-
+    
     # Remove stop words
     if (config.LOG_DEBUG): print(colored("[PROCESSING]: Removing stop words...", "green"))
     stop_words_remover = StopWordsRemover(inputCol="text_body_tokenized", outputCol="text_body_stop_words_removed")
     stop_words_removed_data = stop_words_remover.transform(tokenized_data)
-
+    
     # Stem words
     if (config.LOG_DEBUG): print(colored("[PROCESSING]: Stemming tokenized vector...", "green"))
     stem = udf(lambda tokens: lemmatize(tokens), ArrayType(StringType()))
     stemmed_data = stop_words_removed_data.withColumn("text_body_stemmed", stem("text_body_stop_words_removed"))
-
+    
     # Shingle resulting body
     if (config.LOG_DEBUG): print(colored("[PROCESSING] Shingling resulting text body...", "green"))
     shingle = udf(lambda tokens: get_n_gram_shingles(tokens, 3), StringType())
     shingled_data = stemmed_data.withColumn("text_body_shingled", shingle("text_body_stemmed"))
-    shingle_table = shingled_data.select('id', 'text_body_shingled')
-    # Write to AWS
+    shingle_table = shingled_data.withColumn('id', to_str_udf('id')).select('id', 'text_body_shingled')
+
+    print(shingle_table.select('text_body_shingled').show(3, False))
+    
 #    print('process {} articles total'.format(shingled_data.count()))
-   
     if (config.LOG_DEBUG): print(colored("Adding category/id mappings to Redis", "green"))
-    
-    def list_to_str(l):
-        return str(l)
-    list_to_str_udf = udf(list_to_str, StringType())
-    
-    cat_id_map = raw_data.select(explode('categories').alias('category'), 'id').groupBy(col('category')).agg(collect_list('id').alias('ids_list')).where(size(col('ids_list')) < 2000).withColumn('ids', list_to_str_udf('ids_list'))      
+ 
+    cat_id_map = raw_data.select(explode('categories').alias('category'), 'id').groupBy(col('category')).agg(collect_list('id').alias('ids_list')).where(size(col('ids_list')) < 2000).withColumn('ids', to_str_udf('ids_list'))      
     
     def write_cat_id_map_to_redis(rdd): 
         rdb = redis.StrictRedis(config.REDIS_SERVER, port=6379, db=0)
         for row in rdd:
             rdb.sadd(row.category, row.ids) 
-    cat_id_map.foreachPartition(write_cat_id_map_to_redis)
+    #cat_id_map.foreachPartition(write_cat_id_map_to_redis)
     print(colored("Finished writing category/id maping to Redis", "green"))
-    exit(0)
-    ids_to_compare = ids1.join(
-        ids2,
-        (ids1.cat == ids2.cat) & (ids1.id1 < ids2.id2 )).dropDuplicates(['id1', 'id2']).select('id1', 'id2')
-    print('{} total ids to compare'.format(ids_to_compare.count())) 
+    
+    #ids_to_compare = ids1.join(
+    #    ids2,
+    #    (ids1.cat == ids2.cat) & (ids1.id1 < ids2.id2 )).dropDuplicates(['id1', 'id2']).select('id1', 'id2')
+    #print('{} total ids to compare'.format(ids_to_compare.count())) 
     def write_aws_s3(bucket_name, file_name, df):
         df.write.save("s3a://{0}/{1}".format(bucket_name, file_name), format="json", mode="overwrite")
 
@@ -111,9 +110,9 @@ def preprocess_file(bucket_name, file_name):
     cf = configparser.ConfigParser()
     cf.read('../config/db_properties.ini')
     if (config.LOG_DEBUG): print(colored("[UPLOAD]: Writing shingle data to database...", "green")) 
-    #shingle_table.write.jdbc(cf['postgres']['url_preprocess'], 'shingle_data', mode='overwrite', properties={'user': cf['postgres']['user'], 'password': cf['postgres']['password']}) 
-    if (config.LOG_DEBUG): print(colored("[UPLOAD]: Writing id comparisons to database...", "green")) 
-    ids_to_compare.write.jdbc(cf['postgres']['url_preprocess'], 'ids_to_compare', mode='overwrite', properties={'user': cf['postgres']['user'], 'password': cf['postgres']['password']})
+    shingle_table.write.jdbc(cf['postgres']['url_preprocess'], 'shingle_data', mode='overwrite', properties={'user': cf['postgres']['user'], 'password': cf['postgres']['password']}) 
+    #if (config.LOG_DEBUG): print(colored("[UPLOAD]: Writing id comparisons to database...", "green")) 
+    #ids_to_compare.write.jdbc(cf['postgres']['url_preprocess'], 'ids_to_compare', mode='overwrite', properties={'user': cf['postgres']['user'], 'password': cf['postgres']['password']})
 
  
 def preprocess_all():
