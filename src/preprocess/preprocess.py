@@ -85,12 +85,17 @@ def preprocess_file(bucket_name, file_name):
 #    print('process {} articles total'.format(shingled_data.count()))
    
     if (config.LOG_DEBUG): print(colored("Adding category/id mappings to Redis", "green"))
-    cat_id_map = raw_data.select(explode('categories').alias('category'), 'id').groupBy(col('category')).agg(collect_list('id').alias('ids')).where(size(col('ids')) < 2000)      
+    
+    def list_to_str(l):
+        return str(l)
+    list_to_str_udf = udf(list_to_str, StringType())
+    
+    cat_id_map = raw_data.select(explode('categories').alias('category'), 'id').groupBy(col('category')).agg(collect_list('id').alias('ids_list')).where(size(col('ids_list')) < 2000).withColumn('ids', list_to_str_udf('ids_list'))      
     
     def write_cat_id_map_to_redis(rdd): 
         rdb = redis.StrictRedis(config.REDIS_SERVER, port=6379, db=0)
         for row in rdd:
-            rdb.sadd(row.category, json.dumps({'ids' : row.ids})) 
+            rdb.sadd(row.category, row.ids) 
     cat_id_map.foreachPartition(write_cat_id_map_to_redis)
     print(colored("Finished writing category/id maping to Redis", "green"))
     exit(0)
