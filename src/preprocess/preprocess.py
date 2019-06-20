@@ -3,13 +3,15 @@ import os
 import re
 import time
 import configparser
+import json
+import redis
 from termcolor import colored
 
 from pyspark.ml.feature import StopWordsRemover
 from pyspark.ml.feature import Tokenizer
 
 from pyspark.sql.types import ArrayType, StringType
-from pyspark.sql.functions import udf, concat, col, lit, explode, count
+from pyspark.sql.functions import udf, concat, col, lit, explode, count, collect_list, size
 
 from pyspark.conf import SparkConf
 from pyspark.context import SparkContext
@@ -18,6 +20,9 @@ from pyspark.sql import SQLContext
 import nltk
 nltk.download("wordnet")
 from nltk.stem import WordNetLemmatizer
+
+#reload(sys)
+#sys.setdefaultencoding('utf-8')
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/config")
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/lib")
@@ -79,9 +84,16 @@ def preprocess_file(bucket_name, file_name):
     # Write to AWS
 #    print('process {} articles total'.format(shingled_data.count()))
    
-    ids = raw_data.select('id', explode('categories').alias('cat'))
-    ids1 = ids.withColumnRenamed('id', 'id1').cache()
-    ids2 = ids.withColumnRenamed('id', 'id2').cache()    
+    if (config.LOG_DEBUG): print(colored("Adding category/id mappings to Redis", "green"))
+    cat_id_map = raw_data.select(explode('categories').alias('category'), 'id').groupBy(col('category')).agg(collect_list('id').alias('ids')).where(size(col('ids')) < 2000)      
+    
+    def write_cat_id_map_to_redis(rdd): 
+        rdb = redis.StrictRedis(config.REDIS_SERVER, port=6379, db=0)
+        for row in rdd:
+            rdb.sadd(row.category, json.dumps({'ids' : row.ids})) 
+    cat_id_map.foreachPartition(write_cat_id_map_to_redis)
+    print(colored("Finished writing category/id maping to Redis", "green"))
+    exit(0)
     ids_to_compare = ids1.join(
         ids2,
         (ids1.cat == ids2.cat) & (ids1.id1 < ids2.id2 )).dropDuplicates(['id1', 'id2']).select('id1', 'id2')
