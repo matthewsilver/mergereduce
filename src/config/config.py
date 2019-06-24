@@ -29,7 +29,7 @@ SPARK_STREAMING_MINI_BATCH_WINDOW = 0  # seconds
 
 
 # Redis settings
-REDIS_SERVER = "ec2-54-237-31-74.compute-1.amazonaws.com"
+REDIS_SERVER = "ec2-3-220-51-118.compute-1.amazonaws.com"
 
 
 # MinHash, LSH parameters
