@@ -45,13 +45,12 @@ def compare_text():
         pairs = list(itertools.combinations(eval(list(rdb.smembers(category))[0]), 2))
         print("Evaluating potential for {} pairs in category {}".format(len(pairs), category))
         for pair in pairs:
-           minhash1 = rdb.mget(pair[0])
-           minhash2 = rdb.mget(pair[1])
-           if minhash1 and minhash2 and minhash1[0] is not None and minhash2[0] is not None:
-               minhash1 = eval(list(minhash1))
-               minhash2 = eval(list(minhash2))
-               overlap = 1.0 * set(minhash1) & set(minhash2)/len(minhash1)
-               print(pair[0], pair[1], overlap)
+           minhash1 = rdb.smembers('id:{}'.format(pair[0]))
+           minhash2 = rdb.smembers('id:{}'.format(pair[1]))
+           if minhash1 and minhash2:
+               minhash1 = eval(str(minhash1))
+               minhash2 = eval(str(minhash2))
+               overlap = 1.0 * len(set(minhash1) & set(minhash2))/len(minhash1)
                if overlap > 0.9:
                    print(pair[0], pair[1], overlap)
                    cursor.execute('''INSERT INTO scores (id1, id2, score) VALUES (%s, %s, %s)''', (pair[0], pair[1], overlap))           
