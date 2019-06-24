@@ -18,29 +18,27 @@ from pyspark.sql.functions import udf, col
 from pyspark.sql.types import IntegerType, FloatType, ArrayType
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/config")
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/lib")
+#sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/lib")
 import config
-import util
+#import util
 
 def compare_text():
 
-    calc_overlap = udf(lambda x, y: 1.0*len(set(x) & set(y))/k, FloatType())
-    
     cf = configparser.ConfigParser()
     cf.read('../config/db_properties.ini')
-    if (config.LOG_DEBUG): print(colored("[UPLOAD]: Reaing shingle data from database...", "green"))
-    #df = sql_context.read.jdbc(cf['postgres']['url_preprocess'], table='shingle_data', properties={'user': cf['postgres']['user'], 'password': cf['postgres']['password']})    
-    #print('there are {} articles\n================='.format(df.count()))
+    print(colored("Reading shingle data from redis", "green"))
     
-    # Compute MinHash for every article
-    print(colored("[BATCH]: Calculating MinHash hashes and LSH hashes...", "green"))
-    #minhash_df = compute_minhash(df)
-   
-    print(colored("Writing results to database", "green"))    
+    print(colored("Calculating minhash value overlap for articles in each category and writing results out to database", "green"))
+  
+    # Set up postgres connection for writing similarity scores 
     connection = psycopg2.connect(host=cf['postgres']['url_results'], database='similarity_scores', user=cf['postgres']['user'], password=cf['postgres']['password'])
     cursor = connection.cursor()    
- 
+
+    # Set up redis connection for reading in minhash values
     rdb = redis.StrictRedis(config.REDIS_SERVER, port=6379, db=0)
+
+    # For each category, go through each pair of articles and write the ones with a high enough minhash overlap to a database
+    URL_HEADER = 'https://www.wikipedia.org/wiki?curid='
     for category in rdb.scan_iter('cat:*'):
         pairs = list(itertools.combinations(eval(list(rdb.smembers(category))[0]), 2))
         print("Evaluating potential for {} pairs in category {}".format(len(pairs), category))
@@ -52,28 +50,21 @@ def compare_text():
                minhash2 = eval(str(minhash2))
                overlap = 1.0 * len(set(minhash1) & set(minhash2))/len(minhash1)
                if overlap > 0.9:
-                   print(pair[0], pair[1], overlap)
-                   cursor.execute('''INSERT INTO scores (id1, id2, score) VALUES (%s, %s, %s)''', (pair[0], pair[1], overlap))           
-    #similarity_scores_df = minhash_df.alias('q1').join(
-    #minhash_df.alias('q2'), col('q1.id') < col('q2.id')
-    #).select(
-    #col('q1.url').alias('q1_url'),
-    #col('q2.url').alias('q2_url'),
-    #calc_overlap('q1.min_hash', 'q2.min_hash').alias('lsh_sim')
-    #)
+                   url1 = URL_HEADER + pair[0]
+                   url2 = URL_HEADER + pair[1]
+                   print(category, url1, url2, overlap)
+                   cursor.execute('''INSERT INTO scores (id1, id2, score, category) VALUES (%s, %s, %s, %s)''', (url1, url2, overlap, str(category)))
+                   connection.commit() 
     
-    return similarity_scores_df
-
 def main():
     spark_conf = SparkConf().setAppName("Spark Custom MinHashLSH").set("spark.cores.max", "30")
 
     global sc
+    global sql_context    
+
     sc = SparkContext(conf=spark_conf)
     sc.setLogLevel("ERROR")
-    global sql_context
     sql_context = SQLContext(sc)
-
-    sc.setLogLevel("ERROR")
     sc.addFile(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/lib/util.py")
     sc.addFile(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/config/config.py")
 

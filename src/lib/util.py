@@ -1,7 +1,5 @@
 import os
 import sys
-import boto3
-import botocore
 import time
 import pickle
 
@@ -14,7 +12,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))) +
 import config
 
 global sql_context
-''' General utility functions (not including database functions) used across multiple files '''
 
 # Returns first common tag between two tag lists, may not be the main tag
 def common_tag(x, y):
@@ -28,26 +25,9 @@ def read_all_json_from_bucket(sql_context, bucket_name):
     if(config.LOG_DEBUG): print(colored("[BATCH]: Reading S3 files to master dataframe...", "green"))
     return sql_context.read.json("s3a://{0}/*.json*".format(bucket_name))
 
-# Retrieves AWS bucket object
-def get_bucket(bucket_name):
-        s3 = boto3.resource('s3')
-        try:
-            s3.meta.client.head_bucket(Bucket=bucket_name)
-        except botocore.exceptions.ClientError as e:
-            return None
-        else:
-            return s3.Bucket(bucket_name)
-
 # Unions dataframes with same schema
 def union_dfs(*dfs):
     return reduce(DataFrame.unionAll, dfs)
-
-# Decorator for timing processess
-def time_process(func, process_name):
-    start_time = time.time()
-    func()
-    end_time = time.time()
-    print(colored("{0} run time (seconds): {1}".format(process_name, end_time - start_time), "magenta"))
 
 # Wrappers for loading/saving pickle files
 def load_pickle_file(filepath):
