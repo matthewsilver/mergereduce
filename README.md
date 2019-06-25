@@ -7,6 +7,9 @@ MergeReduce is a pipeline that ingests bodies of text and determines which ones 
 
 The pipeline utilizes Spark, Redis, article comparison limited to articles in each category, and the MinHash text comparison algorithm to scale up more effectively in terms of computation and storage.
 
+### Pipeline Architecture
+![Image of Pipeline](https://github.com/matthewsilver/mergereduce/mergereduce_pipeline.png)
+
 ### Structure
 At the first level of the directory, there are three scripts that run the pipeline:
 
