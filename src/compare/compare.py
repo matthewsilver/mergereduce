@@ -46,13 +46,13 @@ def compare_text():
            minhash1 = rdb.smembers('id:{}'.format(pair[0]))
            minhash2 = rdb.smembers('id:{}'.format(pair[1]))
            if minhash1 and minhash2:
-               minhash1 = eval(str(minhash1))
-               minhash2 = eval(str(minhash2))
+               minhash1 = eval(list(minhash1)[0])
+               minhash2 = eval(list(minhash2)[0])
                overlap = 1.0 * len(set(minhash1) & set(minhash2))/len(minhash1)
-               if overlap > 0.9:
+               if overlap > 0.0:
                    url1 = URL_HEADER + pair[0]
                    url2 = URL_HEADER + pair[1]
-                   print(category, url1, url2, overlap)
+                   #print(category, url1, url2, overlap)
                    cursor.execute('''INSERT INTO scores (id1, id2, score, category) VALUES (%s, %s, %s, %s)''', (url1, url2, overlap, str(category)))
                    connection.commit() 
     
