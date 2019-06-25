@@ -126,8 +126,6 @@ def preprocess_files(bucket_name, file_name):
     def write_minhash_data_to_redis(rdd):
         rdb = redis.StrictRedis(config.REDIS_SERVER, port=6379, db=0)
         for row in rdd:
-            print('row: {}'.format(row))
-            print('row_id: {}, row_min_hash: {}'.format(row.id, row.min_hash))
             rdb.sadd('id:{}'.format(row.id), row.min_hash)
     #print(minhash_df.show(5, True)) 
     minhash_df.foreachPartition(write_minhash_data_to_redis)

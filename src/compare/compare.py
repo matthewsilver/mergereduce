@@ -18,17 +18,18 @@ from pyspark.sql.functions import udf, col
 from pyspark.sql.types import IntegerType, FloatType, ArrayType
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/config")
-#sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/lib")
 import config
-#import util
 
-def compare_text():
+def compare_text(overlap_threshold=0.9):
+    """
+    Overview: read in MinHash Values for articles, group by category, and find overlaps in MinHash values   
+    
+    Input: optional threshold for overlap scores. If two articles are above this threshold, they are written to the Postgres database (default 0.9)
 
+    Output: none
+    """
     cf = configparser.ConfigParser()
     cf.read('../config/db_properties.ini')
-    print(colored("Reading shingle data from redis", "green"))
-    
-    print(colored("Calculating minhash value overlap for articles in each category and writing results out to database", "green"))
   
     # Set up postgres connection for writing similarity scores 
     connection = psycopg2.connect(host=cf['postgres']['url_results'], database='similarity_scores', user=cf['postgres']['user'], password=cf['postgres']['password'])
@@ -46,10 +47,10 @@ def compare_text():
            minhash1 = rdb.smembers('id:{}'.format(pair[0]))
            minhash2 = rdb.smembers('id:{}'.format(pair[1]))
            if minhash1 and minhash2:
-               minhash1 = eval(list(minhash1)[0])
-               minhash2 = eval(list(minhash2)[0])
-               overlap = 1.0 * len(set(minhash1) & set(minhash2))/len(minhash1)
-               if overlap > 0.0:
+               minhash1 = ast.literal_eval(list(minhash1)[0].decode('utf-8'))
+               minhash2 = ast.literal_eval(list(minhash2)[0].decode('utf-8'))
+               overlap = 1.0 * len(set(minhash1).intersection(set(minhash2)))/len(minhash1)
+               if overlap > overlap_threshold:
                    url1 = URL_HEADER + pair[0]
                    url2 = URL_HEADER + pair[1]
                    #print(category, url1, url2, overlap)

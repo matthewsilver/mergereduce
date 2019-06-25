@@ -1,3 +1,3 @@
 cd /home/ubuntu/mergereduce/src/compare;
 export PYSPARK_PYTHON=/usr/bin/python3;
-spark-submit --master spark://ip-10-0-0-7:7077 --conf spark.executor.memoryOverhead=3000  --executor-memory 6G --driver-memory 6G compare.py
+spark-submit --master spark://$1 --conf spark.executor.memoryOverhead=3000  --executor-memory 6G --driver-memory 6G compare.py
