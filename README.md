@@ -1,5 +1,6 @@
 # MergeReduce
-
+Website: insightfulsolutions.agency
+---
 ### Overview
 MergeReduce is a pipeline that ingests bodies of text and determines which ones are similar or identical. The text used is Wikipedia articles, which are good to work with because:
 1. There's a lot of text, and it's publicly available
