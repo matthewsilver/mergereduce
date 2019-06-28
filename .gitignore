@@ -98,3 +98,4 @@ wikiextractor/wikidata
 src/config/db_properties.ini
 derby.log
 src/config/config.py
+flask_app/db_config.py
