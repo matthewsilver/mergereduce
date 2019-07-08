@@ -10,6 +10,11 @@ Figuring out whether two bodies of text are similar is an easy task. But what if
 The pipeline utilizes Spark, Redis, article comparison limited to articles in each category, and the MinHash text comparison algorithm to scale up more effectively in terms of computation and storage.
 
 ### Pipeline Architecture
+
+The MergeReduce pipeline involves taking in Wikipedia articles (https://dumps.wikimedia.org/enwiki/latest/, articles zipped in enwiki-latest-pages-articles.xml.bz2) and runs preprocessing, the code in the scripts _extract-wiki-data.sh_ and _preprocess-wiki-data.sh_, to generate two things:
+- A mapping of each Wikipedia article category to all of the articles that fall under that category
+- A mapping of each Wikipedia article to its [MinHash value](https://mccormickml.com/2015/06/12/minhash-tutorial-with-python-code/)
+
 ![Image of Pipeline](mergereduce_pipeline.png)
 
 ### Structure
