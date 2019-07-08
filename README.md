@@ -14,6 +14,7 @@ The pipeline utilizes Spark, Redis, article comparison limited to articles in ea
 The MergeReduce pipeline involves taking in Wikipedia articles (https://dumps.wikimedia.org/enwiki/latest/, articles zipped in enwiki-latest-pages-articles.xml.bz2) and runs preprocessing, the code in the scripts _extract-wiki-data.sh_ and _preprocess-wiki-data.sh_, to generate two things:
 - A mapping of each Wikipedia article category to all of the articles that fall under that category
 - A mapping of each Wikipedia article to its [MinHash value](https://mccormickml.com/2015/06/12/minhash-tutorial-with-python-code/)
+After storing those intermediate values in Redis, the similarities between articles in each category are compared, and the final pairs of articles and their similarity scores are stored in Postgres. These results are displayed in an [interactive frontend](https://insightfulsolutions.agency) where a user can choose a Wikipedia category and the number of pairs of articles to display.
 
 ![Image of Pipeline](mergereduce_pipeline.png)
 
@@ -32,4 +33,5 @@ To see the Python program each script runs, look in the .sh file to see the file
 
 - Most code imports values from the config and/or utils files under src/config and src/lib, respectively.
 - The WikiExtractor code is pretty extensive, and since I had to make some changes to the code I'm not just cloning the repo. Unfortunately this means a lot of code to look over but I'd recommend skimming at most.
+- Around 1.1 million Wikipedia articles were processed through this pipeline, taking around 2 hours to run from raw data to final results.
 
