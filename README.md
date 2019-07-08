@@ -2,9 +2,10 @@
 Website: insightfulsolutions.agency
 ---
 ### Overview
-MergeReduce is a pipeline that ingests bodies of text and determines which ones are similar or identical. The text used is Wikipedia articles, which are good to work with because:
+Figuring out whether two bodies of text are similar is an easy task. But what if you're a forum determining which questions and answers are most similar among millions? Or a site detecting plagiarized essays uploaded to it? Or a web hosting platform that wants to test whether users make large changes to default web templates it offers? MergeReduce addresses the challenges of these large-scale text comparison endeavors. It's a pipeline that ingests bodies of text and determines which ones are similar or identical, utilizing technologies like Spark and Redis to work at scale. The text used is Wikipedia articles, which are good to work with because:
 1. There's a lot of text, and it's publicly available
 2. Given the structured nature of Wikipedia articles, it's easy to quickly validate that two articles are similar in content
+3. Determining similar Wikipedia articles is analogous to the business use cases listed above.
 
 The pipeline utilizes Spark, Redis, article comparison limited to articles in each category, and the MinHash text comparison algorithm to scale up more effectively in terms of computation and storage.
 
