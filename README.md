@@ -29,6 +29,9 @@ _calc-dedupe-candidates.sh_: calculate article pairs that may be potential dupli
 
 To see the Python program each script runs, look in the .sh file to see the file path the program redirects to.
 
+### Cluster setup
+The cluster for this project was set up using the tool [Pegasus](https://github.com/InsightDataScience/pegasus) which is essentially a wrapper for AWS CLI commands. The scripts to launch and set up the necessary libraries for this pipeline can be found in the _launch-cluster.sh_ script in this repository. The specific EC2 instances used for the clusters depend on the user's budget and time constraints, but I would recommend c4.xlarge instances for the computational parts of the pipeline and m4.xlarge for hosting Postgres (or using RDS if feasible).
+
 ### Notes
 
 - Most code imports values from the config and/or utils files under src/config and src/lib, respectively.
